@@ -80,6 +80,33 @@
 # changed. See
 # hidden_files/audit-cifix2-b-refresh-report.md and
 # hidden_files/audit-cifix2-f2-proof/datasets-match.json.
+# POSITION REFRESH (CI-FIX-3, 2026-11-17, head 8446546 = Worker A
+# container fix + Worker B fuzz/depth-bound fix):
+# Worker B (9a8b9ab) bounded JSON nesting depth at 100 in
+# src/textforensics/probe_metrics.py (rewrote
+# reject_nonfinite_value recursive -> iterative, added
+# _check_json_nesting_depth / _check_json_value_depth helpers
+# and MAX_JSON_DEPTH, new branches in strict_json_loads /
+# strict_json_dumps), shifting every subsequent line (+21 / +43 /
+# +111 / +118 / +125 by region) and stale-dating all 154
+# textforensics.probe_metrics baseline entries. All 154 were
+# re-anchored by line-text-anchored matching to the live
+# cosmic-ray enumeration (2054 items, init only; old head 1899
+# items): same module + operator + enclosing function + span
+# text; occurrence re-derived from the live item, 73 ids renamed
+# (new mutation points earlier in the file renumbered the
+# per-operator occurrence counter, e.g. the two new `|`s in
+# _check_json_nesting_depth renumber strict_json_loads 3/4 ->
+# 5/6; NumberReplacer ties resolved by replacement direction
+# via mutate_code). 0 dropped, 0 appended in this step, 0
+# fingerprint updates (no runtime entry lives in a function
+# Worker B changed). The enumeration diff is 9 removed (old
+# recursive-body mutants only, none baselined) / 164 added /
+# 848 occurrence changes; the 164 added items are proven
+# separately (kill tests or new baseline entries — see
+# hidden_files/audit-cifix3-c-report.md). Reason `[line,col]`
+# citations in 10 entries moved to the new lines. See
+# hidden_files/audit-cifix3-f-proof/probe_metrics-match.json.
 # POSITION REFRESH (CI-FIX-2, 2026-11-17, head 0a1cf11):
 # Worker A (0a1cf11) added the 22-line _is_known_tier helper
 # (new lines 90-111) and replaced the two `tier in EvidenceTier`
@@ -39995,8 +40022,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Add"
 occurrence = 0
-start_pos = [114, 43]
-end_pos = [114, 44]
+start_pos = [135, 43]
+end_pos = [135, 44]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40007,8 +40034,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Add"
 occurrence = 1
-start_pos = [114, 71]
-end_pos = [114, 72]
+start_pos = [135, 71]
+end_pos = [135, 72]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40019,68 +40046,68 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Add"
 occurrence = 2
-start_pos = [131, 71]
-end_pos = [131, 72]
+start_pos = [152, 71]
+end_pos = [152, 72]
 function = "reject_nonfinite_value"
 kind = "arg"
 annotation = "str | None"
 reason = "Postponed-evaluation annotation (arg of reject_nonfinite_value): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:3"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Add"
-occurrence = 3
-start_pos = [158, 32]
-end_pos = [158, 33]
+occurrence = 5
+start_pos = [269, 32]
+end_pos = [269, 33]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:4"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Add"
-occurrence = 4
-start_pos = [158, 40]
-end_pos = [158, 41]
+occurrence = 6
+start_pos = [269, 40]
+end_pos = [269, 41]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:7"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_Add"
-occurrence = 7
-start_pos = [450, 91]
-end_pos = [450, 92]
-function = "set_coverage"
-kind = "return"
-annotation = "dict[str, int | float]"
-reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:8"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_Add"
-occurrence = 8
-start_pos = [483, 19]
-end_pos = [483, 20]
-function = "fpr_at_threshold"
-kind = "return"
-annotation = "dict[str, int | float | tuple[float, float]]"
-reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:9"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Add"
 occurrence = 9
-start_pos = [483, 27]
-end_pos = [483, 28]
+start_pos = [575, 91]
+end_pos = [575, 92]
+function = "set_coverage"
+kind = "return"
+annotation = "dict[str, int | float]"
+reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:10"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 10
+start_pos = [608, 19]
+end_pos = [608, 20]
+function = "fpr_at_threshold"
+kind = "return"
+annotation = "dict[str, int | float | tuple[float, float]]"
+reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `+` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Add:11"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Add"
+occurrence = 11
+start_pos = [608, 27]
+end_pos = [608, 28]
 function = "fpr_at_threshold"
 kind = "return"
 annotation = "dict[str, int | float | tuple[float, float]]"
@@ -40091,8 +40118,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
 occurrence = 0
-start_pos = [114, 43]
-end_pos = [114, 44]
+start_pos = [135, 43]
+end_pos = [135, 44]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40103,8 +40130,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
 occurrence = 1
-start_pos = [114, 71]
-end_pos = [114, 72]
+start_pos = [135, 71]
+end_pos = [135, 72]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40115,68 +40142,68 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
 occurrence = 2
-start_pos = [131, 71]
-end_pos = [131, 72]
+start_pos = [152, 71]
+end_pos = [152, 72]
 function = "reject_nonfinite_value"
 kind = "arg"
 annotation = "str | None"
 reason = "Postponed-evaluation annotation (arg of reject_nonfinite_value): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:3"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
-occurrence = 3
-start_pos = [158, 32]
-end_pos = [158, 33]
+occurrence = 5
+start_pos = [269, 32]
+end_pos = [269, 33]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:4"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
-occurrence = 4
-start_pos = [158, 40]
-end_pos = [158, 41]
+occurrence = 6
+start_pos = [269, 40]
+end_pos = [269, 41]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:7"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
-occurrence = 7
-start_pos = [450, 91]
-end_pos = [450, 92]
-function = "set_coverage"
-kind = "return"
-annotation = "dict[str, int | float]"
-reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:8"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
-occurrence = 8
-start_pos = [483, 19]
-end_pos = [483, 20]
-function = "fpr_at_threshold"
-kind = "return"
-annotation = "dict[str, int | float | tuple[float, float]]"
-reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:9"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
 occurrence = 9
-start_pos = [483, 27]
-end_pos = [483, 28]
+start_pos = [575, 91]
+end_pos = [575, 92]
+function = "set_coverage"
+kind = "return"
+annotation = "dict[str, int | float]"
+reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:10"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 10
+start_pos = [608, 19]
+end_pos = [608, 20]
+function = "fpr_at_threshold"
+kind = "return"
+annotation = "dict[str, int | float | tuple[float, float]]"
+reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `&` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitAnd:11"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_BitAnd"
+occurrence = 11
+start_pos = [608, 27]
+end_pos = [608, 28]
 function = "fpr_at_threshold"
 kind = "return"
 annotation = "dict[str, int | float | tuple[float, float]]"
@@ -40187,8 +40214,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
 occurrence = 0
-start_pos = [114, 43]
-end_pos = [114, 44]
+start_pos = [135, 43]
+end_pos = [135, 44]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40199,8 +40226,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
 occurrence = 1
-start_pos = [114, 71]
-end_pos = [114, 72]
+start_pos = [135, 71]
+end_pos = [135, 72]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40211,68 +40238,68 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
 occurrence = 2
-start_pos = [131, 71]
-end_pos = [131, 72]
+start_pos = [152, 71]
+end_pos = [152, 72]
 function = "reject_nonfinite_value"
 kind = "arg"
 annotation = "str | None"
 reason = "Postponed-evaluation annotation (arg of reject_nonfinite_value): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:3"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
-occurrence = 3
-start_pos = [158, 32]
-end_pos = [158, 33]
+occurrence = 5
+start_pos = [269, 32]
+end_pos = [269, 33]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:4"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
-occurrence = 4
-start_pos = [158, 40]
-end_pos = [158, 41]
+occurrence = 6
+start_pos = [269, 40]
+end_pos = [269, 41]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:7"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
-occurrence = 7
-start_pos = [450, 91]
-end_pos = [450, 92]
-function = "set_coverage"
-kind = "return"
-annotation = "dict[str, int | float]"
-reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:8"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
-occurrence = 8
-start_pos = [483, 19]
-end_pos = [483, 20]
-function = "fpr_at_threshold"
-kind = "return"
-annotation = "dict[str, int | float | tuple[float, float]]"
-reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:9"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
 occurrence = 9
-start_pos = [483, 27]
-end_pos = [483, 28]
+start_pos = [575, 91]
+end_pos = [575, 92]
+function = "set_coverage"
+kind = "return"
+annotation = "dict[str, int | float]"
+reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:10"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 10
+start_pos = [608, 19]
+end_pos = [608, 20]
+function = "fpr_at_threshold"
+kind = "return"
+annotation = "dict[str, int | float | tuple[float, float]]"
+reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `^` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:11"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
+occurrence = 11
+start_pos = [608, 27]
+end_pos = [608, 28]
 function = "fpr_at_threshold"
 kind = "return"
 annotation = "dict[str, int | float | tuple[float, float]]"
@@ -40283,8 +40310,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Div"
 occurrence = 0
-start_pos = [114, 43]
-end_pos = [114, 44]
+start_pos = [135, 43]
+end_pos = [135, 44]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40295,8 +40322,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Div"
 occurrence = 1
-start_pos = [114, 71]
-end_pos = [114, 72]
+start_pos = [135, 71]
+end_pos = [135, 72]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40307,68 +40334,68 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Div"
 occurrence = 2
-start_pos = [131, 71]
-end_pos = [131, 72]
+start_pos = [152, 71]
+end_pos = [152, 72]
 function = "reject_nonfinite_value"
 kind = "arg"
 annotation = "str | None"
 reason = "Postponed-evaluation annotation (arg of reject_nonfinite_value): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:3"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Div"
-occurrence = 3
-start_pos = [158, 32]
-end_pos = [158, 33]
+occurrence = 5
+start_pos = [269, 32]
+end_pos = [269, 33]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:4"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Div"
-occurrence = 4
-start_pos = [158, 40]
-end_pos = [158, 41]
+occurrence = 6
+start_pos = [269, 40]
+end_pos = [269, 41]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:7"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_Div"
-occurrence = 7
-start_pos = [450, 91]
-end_pos = [450, 92]
-function = "set_coverage"
-kind = "return"
-annotation = "dict[str, int | float]"
-reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:8"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_Div"
-occurrence = 8
-start_pos = [483, 19]
-end_pos = [483, 20]
-function = "fpr_at_threshold"
-kind = "return"
-annotation = "dict[str, int | float | tuple[float, float]]"
-reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:9"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Div"
 occurrence = 9
-start_pos = [483, 27]
-end_pos = [483, 28]
+start_pos = [575, 91]
+end_pos = [575, 92]
+function = "set_coverage"
+kind = "return"
+annotation = "dict[str, int | float]"
+reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:10"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 10
+start_pos = [608, 19]
+end_pos = [608, 20]
+function = "fpr_at_threshold"
+kind = "return"
+annotation = "dict[str, int | float | tuple[float, float]]"
+reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `/` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Div:11"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Div"
+occurrence = 11
+start_pos = [608, 27]
+end_pos = [608, 28]
 function = "fpr_at_threshold"
 kind = "return"
 annotation = "dict[str, int | float | tuple[float, float]]"
@@ -40379,8 +40406,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
 occurrence = 0
-start_pos = [114, 43]
-end_pos = [114, 44]
+start_pos = [135, 43]
+end_pos = [135, 44]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40391,8 +40418,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
 occurrence = 1
-start_pos = [114, 71]
-end_pos = [114, 72]
+start_pos = [135, 71]
+end_pos = [135, 72]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40403,68 +40430,68 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
 occurrence = 2
-start_pos = [131, 71]
-end_pos = [131, 72]
+start_pos = [152, 71]
+end_pos = [152, 72]
 function = "reject_nonfinite_value"
 kind = "arg"
 annotation = "str | None"
 reason = "Postponed-evaluation annotation (arg of reject_nonfinite_value): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:3"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
-occurrence = 3
-start_pos = [158, 32]
-end_pos = [158, 33]
+occurrence = 5
+start_pos = [269, 32]
+end_pos = [269, 33]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:4"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
-occurrence = 4
-start_pos = [158, 40]
-end_pos = [158, 41]
+occurrence = 6
+start_pos = [269, 40]
+end_pos = [269, 41]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:7"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
-occurrence = 7
-start_pos = [450, 91]
-end_pos = [450, 92]
-function = "set_coverage"
-kind = "return"
-annotation = "dict[str, int | float]"
-reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:8"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
-occurrence = 8
-start_pos = [483, 19]
-end_pos = [483, 20]
-function = "fpr_at_threshold"
-kind = "return"
-annotation = "dict[str, int | float | tuple[float, float]]"
-reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:9"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
 occurrence = 9
-start_pos = [483, 27]
-end_pos = [483, 28]
+start_pos = [575, 91]
+end_pos = [575, 92]
+function = "set_coverage"
+kind = "return"
+annotation = "dict[str, int | float]"
+reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:10"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 10
+start_pos = [608, 19]
+end_pos = [608, 20]
+function = "fpr_at_threshold"
+kind = "return"
+annotation = "dict[str, int | float | tuple[float, float]]"
+reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `//` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_FloorDiv:11"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_FloorDiv"
+occurrence = 11
+start_pos = [608, 27]
+end_pos = [608, 28]
 function = "fpr_at_threshold"
 kind = "return"
 annotation = "dict[str, int | float | tuple[float, float]]"
@@ -40475,8 +40502,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_LShift"
 occurrence = 0
-start_pos = [114, 43]
-end_pos = [114, 44]
+start_pos = [135, 43]
+end_pos = [135, 44]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40487,8 +40514,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_LShift"
 occurrence = 1
-start_pos = [114, 71]
-end_pos = [114, 72]
+start_pos = [135, 71]
+end_pos = [135, 72]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40499,68 +40526,68 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_LShift"
 occurrence = 2
-start_pos = [131, 71]
-end_pos = [131, 72]
+start_pos = [152, 71]
+end_pos = [152, 72]
 function = "reject_nonfinite_value"
 kind = "arg"
 annotation = "str | None"
 reason = "Postponed-evaluation annotation (arg of reject_nonfinite_value): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:3"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_LShift"
-occurrence = 3
-start_pos = [158, 32]
-end_pos = [158, 33]
+occurrence = 5
+start_pos = [269, 32]
+end_pos = [269, 33]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:4"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_LShift"
-occurrence = 4
-start_pos = [158, 40]
-end_pos = [158, 41]
+occurrence = 6
+start_pos = [269, 40]
+end_pos = [269, 41]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:7"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_LShift"
-occurrence = 7
-start_pos = [450, 91]
-end_pos = [450, 92]
-function = "set_coverage"
-kind = "return"
-annotation = "dict[str, int | float]"
-reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:8"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_LShift"
-occurrence = 8
-start_pos = [483, 19]
-end_pos = [483, 20]
-function = "fpr_at_threshold"
-kind = "return"
-annotation = "dict[str, int | float | tuple[float, float]]"
-reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:9"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_LShift"
 occurrence = 9
-start_pos = [483, 27]
-end_pos = [483, 28]
+start_pos = [575, 91]
+end_pos = [575, 92]
+function = "set_coverage"
+kind = "return"
+annotation = "dict[str, int | float]"
+reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:10"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 10
+start_pos = [608, 19]
+end_pos = [608, 20]
+function = "fpr_at_threshold"
+kind = "return"
+annotation = "dict[str, int | float | tuple[float, float]]"
+reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `<<` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_LShift:11"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_LShift"
+occurrence = 11
+start_pos = [608, 27]
+end_pos = [608, 28]
 function = "fpr_at_threshold"
 kind = "return"
 annotation = "dict[str, int | float | tuple[float, float]]"
@@ -40571,8 +40598,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Mod"
 occurrence = 0
-start_pos = [114, 43]
-end_pos = [114, 44]
+start_pos = [135, 43]
+end_pos = [135, 44]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40583,8 +40610,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Mod"
 occurrence = 1
-start_pos = [114, 71]
-end_pos = [114, 72]
+start_pos = [135, 71]
+end_pos = [135, 72]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40595,68 +40622,68 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Mod"
 occurrence = 2
-start_pos = [131, 71]
-end_pos = [131, 72]
+start_pos = [152, 71]
+end_pos = [152, 72]
 function = "reject_nonfinite_value"
 kind = "arg"
 annotation = "str | None"
 reason = "Postponed-evaluation annotation (arg of reject_nonfinite_value): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:3"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Mod"
-occurrence = 3
-start_pos = [158, 32]
-end_pos = [158, 33]
+occurrence = 5
+start_pos = [269, 32]
+end_pos = [269, 33]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:4"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Mod"
-occurrence = 4
-start_pos = [158, 40]
-end_pos = [158, 41]
+occurrence = 6
+start_pos = [269, 40]
+end_pos = [269, 41]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:7"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_Mod"
-occurrence = 7
-start_pos = [450, 91]
-end_pos = [450, 92]
-function = "set_coverage"
-kind = "return"
-annotation = "dict[str, int | float]"
-reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:8"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_Mod"
-occurrence = 8
-start_pos = [483, 19]
-end_pos = [483, 20]
-function = "fpr_at_threshold"
-kind = "return"
-annotation = "dict[str, int | float | tuple[float, float]]"
-reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:9"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Mod"
 occurrence = 9
-start_pos = [483, 27]
-end_pos = [483, 28]
+start_pos = [575, 91]
+end_pos = [575, 92]
+function = "set_coverage"
+kind = "return"
+annotation = "dict[str, int | float]"
+reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:10"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 10
+start_pos = [608, 19]
+end_pos = [608, 20]
+function = "fpr_at_threshold"
+kind = "return"
+annotation = "dict[str, int | float | tuple[float, float]]"
+reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `%` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mod:11"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Mod"
+occurrence = 11
+start_pos = [608, 27]
+end_pos = [608, 28]
 function = "fpr_at_threshold"
 kind = "return"
 annotation = "dict[str, int | float | tuple[float, float]]"
@@ -40667,8 +40694,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Mul"
 occurrence = 0
-start_pos = [114, 43]
-end_pos = [114, 44]
+start_pos = [135, 43]
+end_pos = [135, 44]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40679,8 +40706,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Mul"
 occurrence = 1
-start_pos = [114, 71]
-end_pos = [114, 72]
+start_pos = [135, 71]
+end_pos = [135, 72]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40691,68 +40718,68 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Mul"
 occurrence = 2
-start_pos = [131, 71]
-end_pos = [131, 72]
+start_pos = [152, 71]
+end_pos = [152, 72]
 function = "reject_nonfinite_value"
 kind = "arg"
 annotation = "str | None"
 reason = "Postponed-evaluation annotation (arg of reject_nonfinite_value): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:3"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Mul"
-occurrence = 3
-start_pos = [158, 32]
-end_pos = [158, 33]
+occurrence = 5
+start_pos = [269, 32]
+end_pos = [269, 33]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:4"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Mul"
-occurrence = 4
-start_pos = [158, 40]
-end_pos = [158, 41]
+occurrence = 6
+start_pos = [269, 40]
+end_pos = [269, 41]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:7"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_Mul"
-occurrence = 7
-start_pos = [450, 91]
-end_pos = [450, 92]
-function = "set_coverage"
-kind = "return"
-annotation = "dict[str, int | float]"
-reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:8"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_Mul"
-occurrence = 8
-start_pos = [483, 19]
-end_pos = [483, 20]
-function = "fpr_at_threshold"
-kind = "return"
-annotation = "dict[str, int | float | tuple[float, float]]"
-reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:9"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Mul"
 occurrence = 9
-start_pos = [483, 27]
-end_pos = [483, 28]
+start_pos = [575, 91]
+end_pos = [575, 92]
+function = "set_coverage"
+kind = "return"
+annotation = "dict[str, int | float]"
+reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:10"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 10
+start_pos = [608, 19]
+end_pos = [608, 20]
+function = "fpr_at_threshold"
+kind = "return"
+annotation = "dict[str, int | float | tuple[float, float]]"
+reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `*` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Mul:11"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Mul"
+occurrence = 11
+start_pos = [608, 27]
+end_pos = [608, 28]
 function = "fpr_at_threshold"
 kind = "return"
 annotation = "dict[str, int | float | tuple[float, float]]"
@@ -40763,8 +40790,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Pow"
 occurrence = 0
-start_pos = [114, 43]
-end_pos = [114, 44]
+start_pos = [135, 43]
+end_pos = [135, 44]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40775,8 +40802,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Pow"
 occurrence = 1
-start_pos = [114, 71]
-end_pos = [114, 72]
+start_pos = [135, 71]
+end_pos = [135, 72]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40787,68 +40814,68 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Pow"
 occurrence = 2
-start_pos = [131, 71]
-end_pos = [131, 72]
+start_pos = [152, 71]
+end_pos = [152, 72]
 function = "reject_nonfinite_value"
 kind = "arg"
 annotation = "str | None"
 reason = "Postponed-evaluation annotation (arg of reject_nonfinite_value): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:3"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Pow"
-occurrence = 3
-start_pos = [158, 32]
-end_pos = [158, 33]
+occurrence = 5
+start_pos = [269, 32]
+end_pos = [269, 33]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:4"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Pow"
-occurrence = 4
-start_pos = [158, 40]
-end_pos = [158, 41]
+occurrence = 6
+start_pos = [269, 40]
+end_pos = [269, 41]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:7"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_Pow"
-occurrence = 7
-start_pos = [450, 91]
-end_pos = [450, 92]
-function = "set_coverage"
-kind = "return"
-annotation = "dict[str, int | float]"
-reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:8"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_Pow"
-occurrence = 8
-start_pos = [483, 19]
-end_pos = [483, 20]
-function = "fpr_at_threshold"
-kind = "return"
-annotation = "dict[str, int | float | tuple[float, float]]"
-reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:9"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Pow"
 occurrence = 9
-start_pos = [483, 27]
-end_pos = [483, 28]
+start_pos = [575, 91]
+end_pos = [575, 92]
+function = "set_coverage"
+kind = "return"
+annotation = "dict[str, int | float]"
+reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:10"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 10
+start_pos = [608, 19]
+end_pos = [608, 20]
+function = "fpr_at_threshold"
+kind = "return"
+annotation = "dict[str, int | float | tuple[float, float]]"
+reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `**` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Pow:11"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Pow"
+occurrence = 11
+start_pos = [608, 27]
+end_pos = [608, 28]
 function = "fpr_at_threshold"
 kind = "return"
 annotation = "dict[str, int | float | tuple[float, float]]"
@@ -40859,8 +40886,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_RShift"
 occurrence = 0
-start_pos = [114, 43]
-end_pos = [114, 44]
+start_pos = [135, 43]
+end_pos = [135, 44]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40871,8 +40898,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_RShift"
 occurrence = 1
-start_pos = [114, 71]
-end_pos = [114, 72]
+start_pos = [135, 71]
+end_pos = [135, 72]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40883,68 +40910,68 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_RShift"
 occurrence = 2
-start_pos = [131, 71]
-end_pos = [131, 72]
+start_pos = [152, 71]
+end_pos = [152, 72]
 function = "reject_nonfinite_value"
 kind = "arg"
 annotation = "str | None"
 reason = "Postponed-evaluation annotation (arg of reject_nonfinite_value): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:3"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_RShift"
-occurrence = 3
-start_pos = [158, 32]
-end_pos = [158, 33]
+occurrence = 5
+start_pos = [269, 32]
+end_pos = [269, 33]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:4"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_RShift"
-occurrence = 4
-start_pos = [158, 40]
-end_pos = [158, 41]
+occurrence = 6
+start_pos = [269, 40]
+end_pos = [269, 41]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:7"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_RShift"
-occurrence = 7
-start_pos = [450, 91]
-end_pos = [450, 92]
-function = "set_coverage"
-kind = "return"
-annotation = "dict[str, int | float]"
-reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:8"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_RShift"
-occurrence = 8
-start_pos = [483, 19]
-end_pos = [483, 20]
-function = "fpr_at_threshold"
-kind = "return"
-annotation = "dict[str, int | float | tuple[float, float]]"
-reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:9"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_RShift"
 occurrence = 9
-start_pos = [483, 27]
-end_pos = [483, 28]
+start_pos = [575, 91]
+end_pos = [575, 92]
+function = "set_coverage"
+kind = "return"
+annotation = "dict[str, int | float]"
+reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:10"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 10
+start_pos = [608, 19]
+end_pos = [608, 20]
+function = "fpr_at_threshold"
+kind = "return"
+annotation = "dict[str, int | float | tuple[float, float]]"
+reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `>>` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_RShift:11"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_RShift"
+occurrence = 11
+start_pos = [608, 27]
+end_pos = [608, 28]
 function = "fpr_at_threshold"
 kind = "return"
 annotation = "dict[str, int | float | tuple[float, float]]"
@@ -40955,8 +40982,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Sub"
 occurrence = 0
-start_pos = [114, 43]
-end_pos = [114, 44]
+start_pos = [135, 43]
+end_pos = [135, 44]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40967,8 +40994,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Sub"
 occurrence = 1
-start_pos = [114, 71]
-end_pos = [114, 72]
+start_pos = [135, 71]
+end_pos = [135, 72]
 function = "require_integer"
 kind = "arg"
 annotation = "int | None"
@@ -40979,68 +41006,68 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Sub"
 occurrence = 2
-start_pos = [131, 71]
-end_pos = [131, 72]
+start_pos = [152, 71]
+end_pos = [152, 72]
 function = "reject_nonfinite_value"
 kind = "arg"
 annotation = "str | None"
 reason = "Postponed-evaluation annotation (arg of reject_nonfinite_value): the `|` in `str | None` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:3"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Sub"
-occurrence = 3
-start_pos = [158, 32]
-end_pos = [158, 33]
+occurrence = 5
+start_pos = [269, 32]
+end_pos = [269, 33]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:4"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Sub"
-occurrence = 4
-start_pos = [158, 40]
-end_pos = [158, 41]
+occurrence = 6
+start_pos = [269, 40]
+end_pos = [269, 41]
 function = "strict_json_loads"
 kind = "arg"
 annotation = "str | bytes | bytearray"
 reason = "Postponed-evaluation annotation (arg of strict_json_loads): the `|` in `str | bytes | bytearray` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:7"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_Sub"
-occurrence = 7
-start_pos = [450, 91]
-end_pos = [450, 92]
-function = "set_coverage"
-kind = "return"
-annotation = "dict[str, int | float]"
-reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
-
-[[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:8"
-module = "textforensics.probe_metrics"
-operator = "core/ReplaceBinaryOperator_BitOr_Sub"
-occurrence = 8
-start_pos = [483, 19]
-end_pos = [483, 20]
-function = "fpr_at_threshold"
-kind = "return"
-annotation = "dict[str, int | float | tuple[float, float]]"
-reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:9"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_Sub"
 occurrence = 9
-start_pos = [483, 27]
-end_pos = [483, 28]
+start_pos = [575, 91]
+end_pos = [575, 92]
+function = "set_coverage"
+kind = "return"
+annotation = "dict[str, int | float]"
+reason = "Postponed-evaluation annotation (return of set_coverage): the `|` in `dict[str, int | float]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:10"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 10
+start_pos = [608, 19]
+end_pos = [608, 20]
+function = "fpr_at_threshold"
+kind = "return"
+annotation = "dict[str, int | float | tuple[float, float]]"
+reason = "Postponed-evaluation annotation (return of fpr_at_threshold): the `|` in `dict[str, int | float | tuple[float, float]]` is an annotation string under `from __future__ import annotations` (PEP 563) and is never evaluated; replacing it with `-` changes only the stored annotation string, not runtime behaviour. (W2 proof: audit-w2-f-proof-probe_metrics session, survivor of the full new-mutant proof run.)"
+
+[[equivalent]]
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_Sub:11"
+module = "textforensics.probe_metrics"
+operator = "core/ReplaceBinaryOperator_BitOr_Sub"
+occurrence = 11
+start_pos = [608, 27]
+end_pos = [608, 28]
 function = "fpr_at_threshold"
 kind = "return"
 annotation = "dict[str, int | float | tuple[float, float]]"
@@ -41051,8 +41078,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Mul_Div"
 occurrence = 0
-start_pos = [114, 27]
-end_pos = [114, 28]
+start_pos = [135, 27]
+end_pos = [135, 28]
 function = "require_integer"
 kind = "domain-equivalent"
 source_text = "*"
@@ -41060,12 +41087,12 @@ source_fingerprint = "9655da12239e2c8e27c05e3de1020c9c96b22ae9fc210eb6da26c2b7c4
 reason = "Domain-equivalent mutant (require_integer): `*,` -> `/,` (keyword-only marker to positional-only marker). Every in-repo call site passes the affected parameters by keyword or omits them (in-repo call-site survey, audit-w2-f-muldiv-survey.py: 0 positional-overflow calls among import-resolved calls, and the remaining candidates checked by direct grep); the positional-only restriction on the preceding parameter is never used. Verified by the call-site survey + full module test-suite survival (a positional call would raise TypeError under the original)."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:1"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:3"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Mul_Div"
-occurrence = 1
-start_pos = [181, 47]
-end_pos = [181, 48]
+occurrence = 3
+start_pos = [306, 47]
+end_pos = [306, 48]
 function = "is_ai_like"
 kind = "domain-equivalent"
 source_text = "*"
@@ -41073,12 +41100,12 @@ source_fingerprint = "000ac4406cc3e2ba4d64344c85058df9789e5bc56b7d7d2f9de337de2b
 reason = "Domain-equivalent mutant (is_ai_like): `*,` -> `/,` (keyword-only marker to positional-only marker). Every in-repo call site passes the affected parameters by keyword or omits them (in-repo call-site survey, audit-w2-f-muldiv-survey.py: 0 positional-overflow calls among import-resolved calls, and the remaining candidates checked by direct grep); the positional-only restriction on the preceding parameter is never used. Verified by the call-site survey + full module test-suite survival (a positional call would raise TypeError under the original)."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:2"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Mul_Div"
-occurrence = 2
-start_pos = [203, 41]
-end_pos = [203, 42]
+occurrence = 4
+start_pos = [328, 41]
+end_pos = [328, 42]
 function = "oriented_scores"
 kind = "domain-equivalent"
 source_text = "*"
@@ -41086,12 +41113,12 @@ source_fingerprint = "7a6305be8389b08ec29123bf0982bbdd887f58ca0aa1120d6bf973d7f4
 reason = "Domain-equivalent mutant (oriented_scores): `*,` -> `/,` (keyword-only marker to positional-only marker). Every in-repo call site passes the affected parameters by keyword or omits them (in-repo call-site survey, audit-w2-f-muldiv-survey.py: 0 positional-overflow calls among import-resolved calls, and the remaining candidates checked by direct grep); the positional-only restriction on the preceding parameter is never used. Verified by the call-site survey + full module test-suite survival (a positional call would raise TypeError under the original)."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:3"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Mul_Div"
-occurrence = 3
-start_pos = [223, 30]
-end_pos = [223, 31]
+occurrence = 5
+start_pos = [348, 30]
+end_pos = [348, 31]
 function = "wilson_ci"
 kind = "domain-equivalent"
 source_text = "*"
@@ -41099,12 +41126,12 @@ source_fingerprint = "a8d29984f7ee35dcd8d9068d5c3ff52461df858c52e240d8bcadf2422a
 reason = "Domain-equivalent mutant (wilson_ci): `*,` -> `/,` (keyword-only marker to positional-only marker). Every in-repo call site passes the affected parameters by keyword or omits them (in-repo call-site survey, audit-w2-f-muldiv-survey.py: 0 positional-overflow calls among import-resolved calls, and the remaining candidates checked by direct grep); the positional-only restriction on the preceding parameter is never used. Verified by the call-site survey + full module test-suite survival (a positional call would raise TypeError under the original)."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:20"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:22"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Mul_Div"
-occurrence = 20
-start_pos = [310, 52]
-end_pos = [310, 53]
+occurrence = 22
+start_pos = [435, 52]
+end_pos = [435, 53]
 function = "psi"
 kind = "domain-equivalent"
 source_text = "*"
@@ -41112,12 +41139,12 @@ source_fingerprint = "b7a4a399008e08a35f17a16fc415b0ed9cb04d2a1b215ce2ad3e7afa1f
 reason = "Domain-equivalent mutant (psi): `*,` -> `/,` (keyword-only marker to positional-only marker). Every in-repo call site passes the affected parameters by keyword or omits them (in-repo call-site survey, audit-w2-f-muldiv-survey.py: 0 positional-overflow calls among import-resolved calls, and the remaining candidates checked by direct grep); the positional-only restriction on the preceding parameter is never used. Verified by the call-site survey + full module test-suite survival (a positional call would raise TypeError under the original)."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:24"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:26"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Mul_Div"
-occurrence = 24
-start_pos = [399, 47]
-end_pos = [399, 48]
+occurrence = 26
+start_pos = [524, 47]
+end_pos = [524, 48]
 function = "ece"
 kind = "domain-equivalent"
 source_text = "*"
@@ -41125,12 +41152,12 @@ source_fingerprint = "d7859b20ee4c18c3ba785b55399ca5f57b0f6ad02963e2acc26eb51679
 reason = "Domain-equivalent mutant (ece): `*,` -> `/,` (keyword-only marker to positional-only marker). Every in-repo call site passes the affected parameters by keyword or omits them (in-repo call-site survey, audit-w2-f-muldiv-survey.py: 0 positional-overflow calls among import-resolved calls, and the remaining candidates checked by direct grep); the positional-only restriction on the preceding parameter is never used. Verified by the call-site survey + full module test-suite survival (a positional call would raise TypeError under the original)."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:27"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:29"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Mul_Div"
-occurrence = 27
-start_pos = [482, 62]
-end_pos = [482, 63]
+occurrence = 29
+start_pos = [607, 62]
+end_pos = [607, 63]
 function = "fpr_at_threshold"
 kind = "domain-equivalent"
 source_text = "*"
@@ -41138,12 +41165,12 @@ source_fingerprint = "08b614bfc7593883048996aa8e01f266d465778395510fc764c6953458
 reason = "Domain-equivalent mutant (fpr_at_threshold): `*,` -> `/,` (keyword-only marker to positional-only marker). Every in-repo call site passes the affected parameters by keyword or omits them (in-repo call-site survey, audit-w2-f-muldiv-survey.py: 0 positional-overflow calls among import-resolved calls, and the remaining candidates checked by direct grep); the positional-only restriction on the preceding parameter is never used. Verified by the call-site survey + full module test-suite survival (a positional call would raise TypeError under the original)."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:28"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:30"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Mul_Div"
-occurrence = 28
-start_pos = [542, 4]
-end_pos = [542, 5]
+occurrence = 30
+start_pos = [667, 4]
+end_pos = [667, 5]
 function = "tpr_at_fpr"
 kind = "domain-equivalent"
 source_text = "*"
@@ -41155,156 +41182,156 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_GtE:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_GtE"
 occurrence = 4
-start_pos = [262, 13]
-end_pos = [262, 15]
+start_pos = [387, 13]
+end_pos = [387, 15]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "1960c800fd240ebaec126a4efd3519f5f6d1c57f3122a726ab7649972c3b5f2c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (ks_statistic): `ks_statistic [262,13]` Eq_GtE:4 / `[265,15]` Eq_GtE:5 (`j == m` / `i == n` -> `>=`): loop indices satisfy j <= m / i <= n. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_ks_statistic grid."
+reason = "Domain-equivalent mutant (ks_statistic): `ks_statistic [387,13]` Eq_GtE:4 / `[390,15]` Eq_GtE:5 (`j == m` / `i == n` -> `>=`): loop indices satisfy j <= m / i <= n. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_ks_statistic grid."
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_GtE:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_GtE"
 occurrence = 5
-start_pos = [265, 15]
-end_pos = [265, 17]
+start_pos = [390, 15]
+end_pos = [390, 17]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "1960c800fd240ebaec126a4efd3519f5f6d1c57f3122a726ab7649972c3b5f2c"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (ks_statistic): `ks_statistic [262,13]` Eq_GtE:4 / `[265,15]` Eq_GtE:5 (`j == m` / `i == n` -> `>=`): loop indices satisfy j <= m / i <= n. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_ks_statistic grid."
+reason = "Domain-equivalent mutant (ks_statistic): `ks_statistic [387,13]` Eq_GtE:4 / `[390,15]` Eq_GtE:5 (`j == m` / `i == n` -> `>=`): loop indices satisfy j <= m / i <= n. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_ks_statistic grid."
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_GtE:16"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_GtE"
 occurrence = 16
-start_pos = [424, 36]
-end_pos = [424, 38]
+start_pos = [549, 36]
+end_pos = [549, 38]
 function = "ece"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "d7859b20ee4c18c3ba785b55399ca5f57b0f6ad02963e2acc26eb51679433842"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (ece): `ece [424,36]` Eq_GtE:16 (`b == n_bins - 1` -> `>=`): bin index b satisfies b <= n_bins - 1. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_ece grid."
+reason = "Domain-equivalent mutant (ece): `ece [549,36]` Eq_GtE:16 (`b == n_bins - 1` -> `>=`): bin index b satisfies b <= n_bins - 1. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_ece grid."
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_GtE:20"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_GtE"
 occurrence = 20
-start_pos = [577, 70]
-end_pos = [577, 72]
+start_pos = [702, 70]
+end_pos = [702, 72]
 function = "tpr_at_fpr"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "a4bcf4c4eedb40afbee9ce3848e8da4546633c094269abee311faa1e06b980b5"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (tpr_at_fpr): `fpr_at_threshold [503,66]` Eq_LtE:18 / `tpr_at_fpr [576,68]` Eq_LtE:19 (`y == 0` -> `<=`) and `tpr_at_fpr [577,70]` Eq_GtE:20 (`y == 1` -> `>=`): labels are validated to {0, 1} before use. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_tpr grid."
+reason = "Domain-equivalent mutant (tpr_at_fpr): `fpr_at_threshold [628,66]` Eq_LtE:18 / `tpr_at_fpr [701,68]` Eq_LtE:19 (`y == 0` -> `<=`) and `tpr_at_fpr [702,70]` Eq_GtE:20 (`y == 1` -> `>=`): labels are validated to {0, 1} before use. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_tpr grid."
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_LtE:0"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_LtE"
 occurrence = 0
-start_pos = [193, 17]
-end_pos = [193, 19]
+start_pos = [318, 17]
+end_pos = [318, 19]
 function = "is_ai_like"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "000ac4406cc3e2ba4d64344c85058df9789e5bc56b7d7d2f9de337de2b32e0d3"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (is_ai_like): `is_ai_like [193,17]` Eq_LtE:0 / `oriented_scores [213,17]` Eq_LtE:2 (`direction == \"higher_means_ai\"` -> `<=`): \"higher_means_ai\" is the min of {higher_means_ai, lower_means_ai}. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_is_ai_like grid."
+reason = "Domain-equivalent mutant (is_ai_like): `is_ai_like [318,17]` Eq_LtE:0 / `oriented_scores [338,17]` Eq_LtE:2 (`direction == \"higher_means_ai\"` -> `<=`): \"higher_means_ai\" is the min of {higher_means_ai, lower_means_ai}. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_is_ai_like grid."
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_LtE:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_LtE"
 occurrence = 2
-start_pos = [213, 17]
-end_pos = [213, 19]
+start_pos = [338, 17]
+end_pos = [338, 19]
 function = "oriented_scores"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "7a6305be8389b08ec29123bf0982bbdd887f58ca0aa1120d6bf973d7f4cb34ad"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (oriented_scores): `is_ai_like [193,17]` Eq_LtE:0 / `oriented_scores [213,17]` Eq_LtE:2 (`direction == \"higher_means_ai\"` -> `<=`): \"higher_means_ai\" is the min of {higher_means_ai, lower_means_ai}. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_oriented grid."
+reason = "Domain-equivalent mutant (oriented_scores): `is_ai_like [318,17]` Eq_LtE:0 / `oriented_scores [338,17]` Eq_LtE:2 (`direction == \"higher_means_ai\"` -> `<=`): \"higher_means_ai\" is the min of {higher_means_ai, lower_means_ai}. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_oriented grid."
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_LtE:8"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_LtE"
 occurrence = 8
-start_pos = [295, 9]
-end_pos = [295, 11]
+start_pos = [420, 9]
+end_pos = [420, 11]
 function = "ks_pvalue"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "e1973552db74a9f3edc76751d52a18585e0e695a6c3a092b82a482a4c833bd52"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (ks_pvalue): `ks_pvalue [295,9]` Eq_LtE:8 (`d == 0.0` -> `<=`): d >= 0 (validated). Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_ks_pvalue grid."
+reason = "Domain-equivalent mutant (ks_pvalue): `ks_pvalue [420,9]` Eq_LtE:8 (`d == 0.0` -> `<=`): d >= 0 (validated). Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_ks_pvalue grid."
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_LtE:18"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_LtE"
 occurrence = 18
-start_pos = [503, 66]
-end_pos = [503, 68]
+start_pos = [628, 66]
+end_pos = [628, 68]
 function = "fpr_at_threshold"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "08b614bfc7593883048996aa8e01f266d465778395510fc764c6953458cc0299"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (fpr_at_threshold): `fpr_at_threshold [503,66]` Eq_LtE:18 / `tpr_at_fpr [576,68]` Eq_LtE:19 (`y == 0` -> `<=`) and `tpr_at_fpr [577,70]` Eq_GtE:20 (`y == 1` -> `>=`): labels are validated to {0, 1} before use. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_fpr grid."
+reason = "Domain-equivalent mutant (fpr_at_threshold): `fpr_at_threshold [628,66]` Eq_LtE:18 / `tpr_at_fpr [701,68]` Eq_LtE:19 (`y == 0` -> `<=`) and `tpr_at_fpr [702,70]` Eq_GtE:20 (`y == 1` -> `>=`): labels are validated to {0, 1} before use. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_fpr grid."
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_LtE:19"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_LtE"
 occurrence = 19
-start_pos = [576, 68]
-end_pos = [576, 70]
+start_pos = [701, 68]
+end_pos = [701, 70]
 function = "tpr_at_fpr"
 kind = "domain-equivalent"
 source_text = "=="
 source_fingerprint = "a4bcf4c4eedb40afbee9ce3848e8da4546633c094269abee311faa1e06b980b5"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (tpr_at_fpr): `fpr_at_threshold [503,66]` Eq_LtE:18 / `tpr_at_fpr [576,68]` Eq_LtE:19 (`y == 0` -> `<=`) and `tpr_at_fpr [577,70]` Eq_GtE:20 (`y == 1` -> `>=`): labels are validated to {0, 1} before use. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_tpr grid."
+reason = "Domain-equivalent mutant (tpr_at_fpr): `fpr_at_threshold [628,66]` Eq_LtE:18 / `tpr_at_fpr [701,68]` Eq_LtE:19 (`y == 0` -> `<=`) and `tpr_at_fpr [702,70]` Eq_GtE:20 (`y == 1` -> `>=`): labels are validated to {0, 1} before use. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_tpr grid."
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceTrueWithFalse:3"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceTrueWithFalse"
 occurrence = 3
-start_pos = [423, 50]
-end_pos = [423, 54]
+start_pos = [548, 50]
+end_pos = [548, 54]
 function = "ece"
 kind = "domain-equivalent"
 source_text = "True"
 source_fingerprint = "d7859b20ee4c18c3ba785b55399ca5f57b0f6ad02963e2acc26eb51679433842"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (ece): `brier [447,66]` / `ece [423,50]` / `fpr_at_threshold [503,55]` ReplaceTrueWithFalse:3/4/6 (`zip(..., strict=True)` -> False): each function raises on length mismatch BEFORE the zip, so the strict flag can never fire. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_ece grid."
+reason = "Domain-equivalent mutant (ece): `brier [572,66]` / `ece [548,50]` / `fpr_at_threshold [628,55]` ReplaceTrueWithFalse:3/4/6 (`zip(..., strict=True)` -> False): each function raises on length mismatch BEFORE the zip, so the strict flag can never fire. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_ece grid."
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceTrueWithFalse:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceTrueWithFalse"
 occurrence = 4
-start_pos = [447, 66]
-end_pos = [447, 70]
+start_pos = [572, 66]
+end_pos = [572, 70]
 function = "brier"
 kind = "domain-equivalent"
 source_text = "True"
 source_fingerprint = "711b51f684c03f3cbf948c0ce511b234c61c7acc3723d8dd10a583302e5e0cb4"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (brier): `brier [447,66]` / `ece [423,50]` / `fpr_at_threshold [503,55]` ReplaceTrueWithFalse:3/4/6 (`zip(..., strict=True)` -> False): each function raises on length mismatch BEFORE the zip, so the strict flag can never fire. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_brier grid."
+reason = "Domain-equivalent mutant (brier): `brier [572,66]` / `ece [548,50]` / `fpr_at_threshold [628,55]` ReplaceTrueWithFalse:3/4/6 (`zip(..., strict=True)` -> False): each function raises on length mismatch BEFORE the zip, so the strict flag can never fire. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_brier grid."
 
 [[equivalent]]
 id = "textforensics.probe_metrics:core/ReplaceTrueWithFalse:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceTrueWithFalse"
 occurrence = 6
-start_pos = [503, 55]
-end_pos = [503, 59]
+start_pos = [628, 55]
+end_pos = [628, 59]
 function = "fpr_at_threshold"
 kind = "domain-equivalent"
 source_text = "True"
 source_fingerprint = "08b614bfc7593883048996aa8e01f266d465778395510fc764c6953458cc0299"  # pragma: allowlist secret — SHA-256 of public source (function fingerprint, not a secret)
-reason = "Domain-equivalent mutant (fpr_at_threshold): `brier [447,66]` / `ece [423,50]` / `fpr_at_threshold [503,55]` ReplaceTrueWithFalse:3/4/6 (`zip(..., strict=True)` -> False): each function raises on length mismatch BEFORE the zip, so the strict flag can never fire. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_fpr grid."
+reason = "Domain-equivalent mutant (fpr_at_threshold): `brier [572,66]` / `ece [548,50]` / `fpr_at_threshold [628,55]` ReplaceTrueWithFalse:3/4/6 (`zip(..., strict=True)` -> False): each function raises on length mismatch BEFORE the zip, so the strict flag can never fire. Verified by differential probe (audit-w2-f-diffprobe2.py, original vs hand-applied mutant via cosmic-ray mutate_code): identical probe digests over the probe_pm_fpr grid."
 
 [[equivalent]]
 id = "textforensics.probe_runs:core/ReplaceBinaryOperator_BitOr_Add:3"
@@ -51316,12 +51343,12 @@ source_fingerprint = "f00bf54505bbe591f6d81411e40d0dee00e3227717e53ca9e6b3d9e3c1
 reason = "Domain-equivalent mutant (_evaluation_dataset_from_dict): abs(sum(split_ratios.values()) - 1.0) > 1e-6 -> >=: float-arithmetic proof: |sum-1| == 1e-6 exactly is unreachable because 1e-6 / 2^-52 = 4503599627.370496 (not an integer). Re-proof survivor (audit-w2-f2-reprove.py, 2026-11-11); probe probe_mc_from_dict."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/NumberReplacer:27"
+id = "textforensics.probe_metrics:core/NumberReplacer:47"
 module = "textforensics.probe_metrics"
 operator = "core/NumberReplacer"
-occurrence = 27
-start_pos = [260, 8]
-end_pos = [260, 11]
+occurrence = 47
+start_pos = [385, 8]
+end_pos = [385, 11]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "0.0"
@@ -51329,12 +51356,12 @@ source_fingerprint = "1960c800fd240ebaec126a4efd3519f5f6d1c57f3122a726ab7649972c
 reason = "d = 0.0 -> d = -1.0; gaps >= 0 so max is unchanged. Re-proof survivor (audit-w2-f2-reprove.py, 2026-11-11); probe probe_pm_ks_statistic."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/NumberReplacer:45"
+id = "textforensics.probe_metrics:core/NumberReplacer:65"
 module = "textforensics.probe_metrics"
 operator = "core/NumberReplacer"
-occurrence = 45
-start_pos = [295, 12]
-end_pos = [295, 15]
+occurrence = 65
+start_pos = [420, 12]
+end_pos = [420, 15]
 function = "ks_pvalue"
 kind = "domain-equivalent"
 source_text = "0.0"
@@ -51342,12 +51369,12 @@ source_fingerprint = "e1973552db74a9f3edc76751d52a18585e0e695a6c3a092b82a482a4c8
 reason = "It is the d == -1.0 variant, never true. Re-proof survivor (audit-w2-f2-reprove.py, 2026-11-11); probe probe_pm_ks_pvalue. (source_text `0.0`)."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/NumberReplacer:71"
+id = "textforensics.probe_metrics:core/NumberReplacer:91"
 module = "textforensics.probe_metrics"
 operator = "core/NumberReplacer"
-occurrence = 71
-start_pos = [307, 15]
-end_pos = [307, 18]
+occurrence = 91
+start_pos = [432, 15]
+end_pos = [432, 18]
 function = "ks_pvalue"
 kind = "domain-equivalent"
 source_text = "0.0"
@@ -51355,12 +51382,12 @@ source_fingerprint = "e1973552db74a9f3edc76751d52a18585e0e695a6c3a092b82a482a4c8
 reason = "It is max's 0.0 -> -1.0; total never < -1.0. Re-proof survivor (audit-w2-f2-reprove.py, 2026-11-11); probe probe_pm_ks_pvalue."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/NumberReplacer:79"
+id = "textforensics.probe_metrics:core/NumberReplacer:99"
 module = "textforensics.probe_metrics"
 operator = "core/NumberReplacer"
-occurrence = 79
-start_pos = [330, 28]
-end_pos = [330, 29]
+occurrence = 99
+start_pos = [455, 28]
+end_pos = [455, 29]
 function = "psi"
 kind = "domain-equivalent"
 source_text = "1"
@@ -51368,12 +51395,12 @@ source_fingerprint = "b7a4a399008e08a35f17a16fc415b0ed9cb04d2a1b215ce2ad3e7afa1f
 reason = "Domain-equivalent mutant (psi): The min first arg is dead: i*n_ref//bins < n_ref for i < bins, so the min is always the second arg. Re-proof survivor (audit-w2-f2-reprove.py, 2026-11-11); probe probe_pm_extra."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/NumberReplacer:172"
+id = "textforensics.probe_metrics:core/NumberReplacer:192"
 module = "textforensics.probe_metrics"
 operator = "core/NumberReplacer"
-occurrence = 172
-start_pos = [642, 16]
-end_pos = [642, 19]
+occurrence = 192
+start_pos = [767, 16]
+end_pos = [767, 19]
 function = "holm_adjusted"
 kind = "unobservable-value"
 source_text = "0.0"
@@ -51381,12 +51408,12 @@ source_fingerprint = "f8eb33bb19b952021959be22eb87c4960d9c4e1751c52c831c96b5ab00
 reason = "Unobservable-value mutant (holm_adjusted): source_text `0.0` — adjusted[] is fully overwritten in the loop before any read. Re-proof survivor (audit-w2-f2-reprove.py, 2026-11-11); probe probe_pm_extra."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/NumberReplacer:173"
+id = "textforensics.probe_metrics:core/NumberReplacer:193"
 module = "textforensics.probe_metrics"
 operator = "core/NumberReplacer"
-occurrence = 173
-start_pos = [642, 16]
-end_pos = [642, 19]
+occurrence = 193
+start_pos = [767, 16]
+end_pos = [767, 19]
 function = "holm_adjusted"
 kind = "unobservable-value"
 source_text = "0.0"
@@ -51394,12 +51421,12 @@ source_fingerprint = "f8eb33bb19b952021959be22eb87c4960d9c4e1751c52c831c96b5ab00
 reason = "Unobservable-value mutant (holm_adjusted): source_text `0.0` — adjusted[] is fully overwritten in the loop before any read. Re-proof survivor (audit-w2-f2-reprove.py, 2026-11-11); probe probe_pm_extra."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/NumberReplacer:175"
+id = "textforensics.probe_metrics:core/NumberReplacer:195"
 module = "textforensics.probe_metrics"
 operator = "core/NumberReplacer"
-occurrence = 175
-start_pos = [643, 18]
-end_pos = [643, 21]
+occurrence = 195
+start_pos = [768, 18]
+end_pos = [768, 21]
 function = "holm_adjusted"
 kind = "domain-equivalent"
 source_text = "0.0"
@@ -51407,12 +51434,12 @@ source_fingerprint = "f8eb33bb19b952021959be22eb87c4960d9c4e1751c52c831c96b5ab00
 reason = "Domain-equivalent mutant (holm_adjusted): running_max over values >= 0, so -1.0 start == 0.0 start. Re-proof survivor (audit-w2-f2-reprove.py, 2026-11-11); probe probe_pm_extra."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:14"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_BitOr_BitXor:16"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_BitOr_BitXor"
-occurrence = 14
-start_pos = [581, 38]
-end_pos = [581, 39]
+occurrence = 16
+start_pos = [706, 38]
+end_pos = [706, 39]
 function = "tpr_at_fpr"
 kind = "domain-equivalent"
 source_text = "|"
@@ -51420,12 +51447,12 @@ source_fingerprint = "a4bcf4c4eedb40afbee9ce3848e8da4546633c094269abee311faa1e06
 reason = "Domain-equivalent mutant (tpr_at_fpr): nextafter(max_score) is never in set(oriented), so | == ^. Re-proof survivor (audit-w2-f2-reprove.py, 2026-11-11); probe probe_pm_tpr."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:14"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_Div:16"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Mul_Div"
-occurrence = 14
-start_pos = [302, 19]
-end_pos = [302, 20]
+occurrence = 16
+start_pos = [427, 19]
+end_pos = [427, 20]
 function = "ks_pvalue"
 kind = "domain-equivalent"
 source_text = "*"
@@ -51433,12 +51460,12 @@ source_fingerprint = "e1973552db74a9f3edc76751d52a18585e0e695a6c3a092b82a482a4c8
 reason = "Dividing by (-1)^(j-1) = +-1.0 is identical to multiplying. Re-proof survivor (audit-w2-f2-reprove.py, 2026-11-11); probe probe_pm_ks_pvalue. (source_text `*`)."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_FloorDiv:14"
+id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Mul_FloorDiv:16"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Mul_FloorDiv"
-occurrence = 14
-start_pos = [302, 19]
-end_pos = [302, 20]
+occurrence = 16
+start_pos = [427, 19]
+end_pos = [427, 20]
 function = "ks_pvalue"
 kind = "domain-equivalent"
 source_text = "*"
@@ -51450,8 +51477,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Sub_Add:3"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Sub_Add"
 occurrence = 3
-start_pos = [302, 35]
-end_pos = [302, 36]
+start_pos = [427, 35]
+end_pos = [427, 36]
 function = "ks_pvalue"
 kind = "domain-equivalent"
 source_text = "-"
@@ -51463,8 +51490,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Sub_Add:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Sub_Add"
 occurrence = 4
-start_pos = [330, 26]
-end_pos = [330, 27]
+start_pos = [455, 26]
+end_pos = [455, 27]
 function = "psi"
 kind = "domain-equivalent"
 source_text = "-"
@@ -51476,8 +51503,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Sub_BitOr:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Sub_BitOr"
 occurrence = 4
-start_pos = [330, 26]
-end_pos = [330, 27]
+start_pos = [455, 26]
+end_pos = [455, 27]
 function = "psi"
 kind = "domain-equivalent"
 source_text = "-"
@@ -51489,8 +51516,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Sub_BitXor:3"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Sub_BitXor"
 occurrence = 3
-start_pos = [302, 35]
-end_pos = [302, 36]
+start_pos = [427, 35]
+end_pos = [427, 36]
 function = "ks_pvalue"
 kind = "domain-equivalent"
 source_text = "-"
@@ -51502,8 +51529,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Sub_BitXor:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Sub_BitXor"
 occurrence = 4
-start_pos = [330, 26]
-end_pos = [330, 27]
+start_pos = [455, 26]
+end_pos = [455, 27]
 function = "psi"
 kind = "domain-equivalent"
 source_text = "-"
@@ -51515,8 +51542,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Sub_Div:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Sub_Div"
 occurrence = 4
-start_pos = [330, 26]
-end_pos = [330, 27]
+start_pos = [455, 26]
+end_pos = [455, 27]
 function = "psi"
 kind = "domain-equivalent"
 source_text = "-"
@@ -51528,8 +51555,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Sub_FloorDiv:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Sub_FloorDiv"
 occurrence = 4
-start_pos = [330, 26]
-end_pos = [330, 27]
+start_pos = [455, 26]
+end_pos = [455, 27]
 function = "psi"
 kind = "domain-equivalent"
 source_text = "-"
@@ -51541,8 +51568,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Sub_LShift:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Sub_LShift"
 occurrence = 4
-start_pos = [330, 26]
-end_pos = [330, 27]
+start_pos = [455, 26]
+end_pos = [455, 27]
 function = "psi"
 kind = "domain-equivalent"
 source_text = "-"
@@ -51554,8 +51581,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Sub_Mul:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Sub_Mul"
 occurrence = 4
-start_pos = [330, 26]
-end_pos = [330, 27]
+start_pos = [455, 26]
+end_pos = [455, 27]
 function = "psi"
 kind = "domain-equivalent"
 source_text = "-"
@@ -51567,8 +51594,8 @@ id = "textforensics.probe_metrics:core/ReplaceBinaryOperator_Sub_Pow:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceBinaryOperator_Sub_Pow"
 occurrence = 4
-start_pos = [330, 26]
-end_pos = [330, 27]
+start_pos = [455, 26]
+end_pos = [455, 27]
 function = "psi"
 kind = "domain-equivalent"
 source_text = "-"
@@ -51580,8 +51607,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_GtE:17"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_GtE"
 occurrence = 17
-start_pos = [424, 56]
-end_pos = [424, 58]
+start_pos = [549, 56]
+end_pos = [549, 58]
 function = "ece"
 kind = "domain-equivalent"
 source_text = "=="
@@ -51593,8 +51620,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_GtE:21"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_GtE"
 occurrence = 21
-start_pos = [592, 47]
-end_pos = [592, 49]
+start_pos = [717, 47]
+end_pos = [717, 49]
 function = "tpr_at_fpr"
 kind = "domain-equivalent"
 source_text = "=="
@@ -51606,8 +51633,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_Lt:8"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_Lt"
 occurrence = 8
-start_pos = [295, 9]
-end_pos = [295, 11]
+start_pos = [420, 9]
+end_pos = [420, 11]
 function = "ks_pvalue"
 kind = "domain-equivalent"
 source_text = "=="
@@ -51619,8 +51646,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_LtE:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_LtE"
 occurrence = 1
-start_pos = [195, 17]
-end_pos = [195, 19]
+start_pos = [320, 17]
+end_pos = [320, 19]
 function = "is_ai_like"
 kind = "domain-equivalent"
 source_text = "=="
@@ -51632,8 +51659,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_LtE:3"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_LtE"
 occurrence = 3
-start_pos = [215, 17]
-end_pos = [215, 19]
+start_pos = [340, 17]
+end_pos = [340, 19]
 function = "oriented_scores"
 kind = "domain-equivalent"
 source_text = "=="
@@ -51645,8 +51672,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_LtE:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_LtE"
 occurrence = 6
-start_pos = [270, 33]
-end_pos = [270, 35]
+start_pos = [395, 33]
+end_pos = [395, 35]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "=="
@@ -51658,8 +51685,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Eq_LtE:7"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Eq_LtE"
 occurrence = 7
-start_pos = [272, 33]
-end_pos = [272, 35]
+start_pos = [397, 33]
+end_pos = [397, 35]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "=="
@@ -51667,12 +51694,12 @@ source_fingerprint = "1960c800fd240ebaec126a4efd3519f5f6d1c57f3122a726ab7649972c
 reason = "Tie-loop invariants: sorted inputs, a[i] >= value. Re-proof survivor (audit-w2-f2-reprove.py, 2026-11-11); probe probe_pm_ks_statistic. (source_text `==`)."
 
 [[equivalent]]
-id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Gt_GtE:4"
+id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Gt_GtE:9"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Gt_GtE"
-occurrence = 4
-start_pos = [588, 35]
-end_pos = [588, 36]
+occurrence = 9
+start_pos = [713, 35]
+end_pos = [713, 36]
 function = "tpr_at_fpr"
 kind = "domain-equivalent"
 source_text = ">"
@@ -51684,8 +51711,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Lt_Gt:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Lt_Gt"
 occurrence = 1
-start_pos = [261, 12]
-end_pos = [261, 13]
+start_pos = [386, 12]
+end_pos = [386, 13]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "<"
@@ -51697,8 +51724,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Lt_Gt:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Lt_Gt"
 occurrence = 2
-start_pos = [261, 21]
-end_pos = [261, 22]
+start_pos = [386, 21]
+end_pos = [386, 22]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "<"
@@ -51710,8 +51737,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Lt_Gt:3"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Lt_Gt"
 occurrence = 3
-start_pos = [262, 24]
-end_pos = [262, 25]
+start_pos = [387, 24]
+end_pos = [387, 25]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "<"
@@ -51723,8 +51750,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Lt_LtE:8"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Lt_LtE"
 occurrence = 8
-start_pos = [304, 21]
-end_pos = [304, 22]
+start_pos = [429, 21]
+end_pos = [429, 22]
 function = "ks_pvalue"
 kind = "domain-equivalent"
 source_text = "<"
@@ -51736,8 +51763,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Lt_NotEq:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Lt_NotEq"
 occurrence = 1
-start_pos = [261, 12]
-end_pos = [261, 13]
+start_pos = [386, 12]
+end_pos = [386, 13]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "<"
@@ -51749,8 +51776,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Lt_NotEq:2"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Lt_NotEq"
 occurrence = 2
-start_pos = [261, 21]
-end_pos = [261, 22]
+start_pos = [386, 21]
+end_pos = [386, 22]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "<"
@@ -51762,8 +51789,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Lt_NotEq:3"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Lt_NotEq"
 occurrence = 3
-start_pos = [262, 24]
-end_pos = [262, 25]
+start_pos = [387, 24]
+end_pos = [387, 25]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "<"
@@ -51775,8 +51802,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Lt_NotEq:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Lt_NotEq"
 occurrence = 5
-start_pos = [265, 28]
-end_pos = [265, 29]
+start_pos = [390, 28]
+end_pos = [390, 29]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "<"
@@ -51788,8 +51815,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Lt_NotEq:6"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Lt_NotEq"
 occurrence = 6
-start_pos = [270, 20]
-end_pos = [270, 21]
+start_pos = [395, 20]
+end_pos = [395, 21]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "<"
@@ -51801,8 +51828,8 @@ id = "textforensics.probe_metrics:core/ReplaceComparisonOperator_Lt_NotEq:7"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceComparisonOperator_Lt_NotEq"
 occurrence = 7
-start_pos = [272, 20]
-end_pos = [272, 21]
+start_pos = [397, 20]
+end_pos = [397, 21]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "<"
@@ -51814,8 +51841,8 @@ id = "textforensics.probe_metrics:core/ReplaceOrWithAnd:3"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceOrWithAnd"
 occurrence = 3
-start_pos = [261, 16]
-end_pos = [261, 18]
+start_pos = [386, 16]
+end_pos = [386, 18]
 function = "ks_statistic"
 kind = "domain-equivalent"
 source_text = "or"
@@ -51827,8 +51854,8 @@ id = "textforensics.probe_metrics:core/ReplaceTrueWithFalse:1"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceTrueWithFalse"
 occurrence = 1
-start_pos = [341, 51]
-end_pos = [341, 55]
+start_pos = [466, 51]
+end_pos = [466, 55]
 function = "psi"
 kind = "domain-equivalent"
 source_text = "True"
@@ -51840,8 +51867,8 @@ id = "textforensics.probe_metrics:core/ReplaceTrueWithFalse:5"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceTrueWithFalse"
 occurrence = 5
-start_pos = [466, 73]
-end_pos = [466, 77]
+start_pos = [591, 73]
+end_pos = [591, 77]
 function = "set_coverage"
 kind = "domain-equivalent"
 source_text = "True"
@@ -51853,8 +51880,8 @@ id = "textforensics.probe_metrics:core/ReplaceTrueWithFalse:7"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceTrueWithFalse"
 occurrence = 7
-start_pos = [576, 57]
-end_pos = [576, 61]
+start_pos = [701, 57]
+end_pos = [701, 61]
 function = "tpr_at_fpr"
 kind = "domain-equivalent"
 source_text = "True"
@@ -51866,8 +51893,8 @@ id = "textforensics.probe_metrics:core/ReplaceTrueWithFalse:8"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceTrueWithFalse"
 occurrence = 8
-start_pos = [577, 59]
-end_pos = [577, 63]
+start_pos = [702, 59]
+end_pos = [702, 63]
 function = "tpr_at_fpr"
 kind = "domain-equivalent"
 source_text = "True"
@@ -51879,8 +51906,8 @@ id = "textforensics.probe_metrics:core/ReplaceUnaryOperator_Delete_USub:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceUnaryOperator_Delete_USub"
 occurrence = 4
-start_pos = [587, 30]
-end_pos = [587, 31]
+start_pos = [712, 30]
+end_pos = [712, 31]
 function = "tpr_at_fpr"
 kind = "domain-equivalent"
 source_text = "-"
@@ -51892,8 +51919,8 @@ id = "textforensics.probe_metrics:core/ReplaceUnaryOperator_USub_Not:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceUnaryOperator_USub_Not"
 occurrence = 4
-start_pos = [587, 30]
-end_pos = [587, 31]
+start_pos = [712, 30]
+end_pos = [712, 31]
 function = "tpr_at_fpr"
 kind = "domain-equivalent"
 source_text = "-"
@@ -51905,8 +51932,8 @@ id = "textforensics.probe_metrics:core/ReplaceUnaryOperator_USub_UAdd:4"
 module = "textforensics.probe_metrics"
 operator = "core/ReplaceUnaryOperator_USub_UAdd"
 occurrence = 4
-start_pos = [587, 30]
-end_pos = [587, 31]
+start_pos = [712, 30]
+end_pos = [712, 31]
 function = "tpr_at_fpr"
 kind = "domain-equivalent"
 source_text = "-"
