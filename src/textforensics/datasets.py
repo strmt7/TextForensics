@@ -2083,7 +2083,14 @@ def write_sample_cache(
     if filename is not None:
         if not filename or filename != Path(filename).name:
             raise ValueError(f"filename must be a plain file name, got {filename!r}")
-        path = path.with_name(filename)
+        # NB: convert to plain str only AFTER the value comparison
+        # above. On CPython 3.11, PurePath.with_name passes the raw
+        # name to _Flavour.parse_parts, which sys.intern()s it, and
+        # sys.intern rejects str subclasses ("can't intern
+        # PlainName"); 3.12+ pathlib wraps parts in str() first. The
+        # comparison must still see the original subclass — that is
+        # what the NotEq_IsNot mutant-kill tests rely on.
+        path = path.with_name(str(filename))
     lines = [json.dumps(row.to_jsonl(), ensure_ascii=False, sort_keys=True) for row in normalized]
     content = "\n".join(lines) + ("\n" if lines else "")
     # One encoding, hashed only as persisted bytes — never a text-mode
@@ -2147,7 +2154,14 @@ def read_sample_cache(
     if filename is not None:
         if not filename or filename != Path(filename).name:
             raise ValueError(f"filename must be a plain file name, got {filename!r}")
-        path = path.with_name(filename)
+        # NB: convert to plain str only AFTER the value comparison
+        # above. On CPython 3.11, PurePath.with_name passes the raw
+        # name to _Flavour.parse_parts, which sys.intern()s it, and
+        # sys.intern rejects str subclasses ("can't intern
+        # PlainName"); 3.12+ pathlib wraps parts in str() first. The
+        # comparison must still see the original subclass — that is
+        # what the NotEq_IsNot mutant-kill tests rely on.
+        path = path.with_name(str(filename))
     if not path.exists():
         raise FileNotFoundError(f"No cached sample for {spec.key} {config}/{split}: {path}")
     manifest_file = (
