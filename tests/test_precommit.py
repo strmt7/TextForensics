@@ -86,6 +86,7 @@ class TestValidateSchemas:
         packaged = repo_root / "src" / "textforensics" / "schemas"
         names = sorted(p.name for p in packaged.glob("*.json"))
         assert names == [
+            "candidate-manifest.schema.json",
             "case-file.schema.json",
             "detector-result.schema.json",
             "enterprise-policy.schema.json",
