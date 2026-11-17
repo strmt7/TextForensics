@@ -251,3 +251,86 @@ def test_strict_json_dumps_rejects_over_nested_value():
     with pytest.raises(ValueError, match="depth"):
         pm.strict_json_dumps(_nested_list(101))
     assert pm.strict_json_dumps(_nested_list(100)) == "[" * 100 + "]" * 100
+
+
+# ---------------------------------------------------------------------------
+# Strict-JSON depth bound — kill tests (CI-FIX-3 baseline refresh, Worker C)
+#
+# The mutation proof (cosmic-ray exec, 164 new items from Worker B's
+# change: 117 killed, 47 survived) left 23 survivors that are genuine
+# behaviour, not equivalents. Each test below kills the mutants named
+# in its comment; the distinguishing inputs were verified against the
+# actual mutants with cosmic_ray.mutating.mutate_code before the
+# tests were written (see hidden_files/audit-cifix3-f-proof/).
+# ---------------------------------------------------------------------------
+
+
+def test_reject_nonfinite_value_enforces_depth_limit_at_101():
+    # The iterative walk counts the root at depth 1. The `1 -> 0`
+    # mutant (NumberReplacer:7) shifts every depth down by one, so a
+    # value at exactly depth 101 is counted 100 and accepted — but
+    # the 100/2000 tests never probe the boundary itself, and the
+    # raw-text scan masks the walk through strict_json_loads, so only
+    # a direct walk call at depth 101 distinguishes it.
+    with pytest.raises(ValueError, match="depth"):
+        pm.reject_nonfinite_value(_nested_list(101))
+    with pytest.raises(ValueError, match="depth"):
+        pm.reject_nonfinite_value(_nested_dict(101))
+
+
+def test_strict_json_loads_rejects_unbalanced_over_nested_input():
+    # The raw-text scan must reject over-nested input BEFORE decoding,
+    # even when the document is truncated/malformed. The balanced
+    # 101 tests never distinguish a broken scan from a working one:
+    # when the scan silently passes, the iterative walk still raises
+    # ValueError("depth") for the balanced input and masks the scan
+    # mutants. An unbalanced 101-deep input has no decoded value for
+    # the walk to check, so a broken scan surfaces as a JSONDecodeError
+    # (no "depth" in the message) instead of the depth ValueError.
+    # Kills: scan `depth = 0 -> -1` (NumberReplacer:13), the
+    # zero-iteration for-loop (ZeroIterationForLoop:0), the negated
+    # opener test (AddNot:16) and `depth += 1 -> += 0`
+    # (NumberReplacer:15).
+    with pytest.raises(ValueError, match="depth"):
+        pm.strict_json_loads("[" * 101)
+
+
+def test_strict_json_loads_scan_counts_closing_brackets():
+    # The scan's close handling (`depth -= 1`) is only observable on
+    # inputs where closes happen before further deep nesting: the
+    # balanced depth tests have no closes before the deep run, and
+    # the walk masks the scan on balanced input anyway.
+    # (a) Two sequential 51-deep branches: true max depth is 51, so
+    # the document parses. The `depth -= 1 -> -= 0` mutant
+    # (NumberReplacer:17) never decrements, so the second branch
+    # accumulates past 100 and the mutant rejects a valid document.
+    branch: object = 1
+    for _ in range(50):
+        branch = [branch]
+    assert pm.strict_json_loads(
+        "[" + "[" * 50 + "1" + "]" * 50 + "," + "[" * 50 + "1" + "]" * 50 + "]"
+    ) == [branch, branch]
+    # (b) Two closed mappings followed by an unclosed 101-deep run:
+    # true depth exceeds 100 during the run, so the scan raises
+    # ValueError("depth"). The `depth -= 1 -> -= 2` mutant
+    # (NumberReplacer:16) over-decrements on the closes, counts the
+    # run as 99 deep and passes it, so decoding fails with a bare
+    # JSONDecodeError instead.
+    with pytest.raises(ValueError, match="depth"):
+        pm.strict_json_loads("[{}, {}, [" + "[" * 99)
+
+
+def test_strict_json_dumps_rejects_over_nested_dict():
+    # The dumps depth check walks mappings and sequences in separate
+    # branches, and the existing dumps tests only nest lists — so the
+    # whole mapping branch was untested: every `depth + 1` replacement
+    # there (Add_*:2, 11 mutants), both `depth + 1 -> +2 / +0`
+    # replacements (NumberReplacer:20/21) and the `depth > max_depth`
+    # replacements that only differ at exactly depth 100
+    # (Gt_Eq/Gt_GtE/Gt_Is:4) survived. A 100-deep dict must dump and
+    # a 101-deep dict must raise, mirroring the list tests.
+    assert pm.strict_json_dumps(_nested_dict(100)) == (
+        '{"a": ' * 100 + "1" + "}" * 100
+    )
+    with pytest.raises(ValueError, match="depth"):
+        pm.strict_json_dumps(_nested_dict(101))
