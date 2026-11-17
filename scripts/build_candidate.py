@@ -73,6 +73,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import time
 from pathlib import Path
 
 SOURCE_DATE_EPOCH = "1704067200"
@@ -179,11 +180,32 @@ def fresh_venv(python: str, venv_dir: Path, tools_lockfile: Path) -> Path:
     env = dict(os.environ)
     env["PIP_NO_CACHE_DIR"] = "1"
     env["TMPDIR"] = str(venv_dir.parent)
-    run(
-        [str(venv_python), "-m", "pip", "install", "--require-hashes", "-r", str(tools_lockfile)],
-        env=env,
-    )
-    return venv_python
+    # Retry with backoff: the egress proxy intermittently times out on
+    # PyPI downloads (observed: consecutive venv setups failed with
+    # ProxyError while the proxy was degraded, then recovered).
+    last_error: Exception | None = None
+    for attempt in (1, 2, 3):
+        try:
+            run(
+                [
+                    str(venv_python),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--require-hashes",
+                    "-r",
+                    str(tools_lockfile),
+                ],
+                env=env,
+            )
+            return venv_python
+        except RuntimeError as exc:
+            last_error = exc
+            if attempt < 3:
+                time.sleep(15 * attempt)
+    raise RuntimeError(
+        f"pip install of the tools lockfile failed after 3 attempts: {last_error}"
+    ) from last_error
 
 
 def build_distributions(venv_python: Path, checkout: Path, dist_dir: Path) -> list[Path]:

@@ -77,6 +77,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import time
 from pathlib import Path
 
 SOURCE_DATE_EPOCH = "1704067200"
@@ -251,11 +252,34 @@ def fresh_venv(python: str, venv_dir: Path, tools_lockfile: Path, tmpdir: Path) 
     env = dict(os.environ)
     env["PIP_NO_CACHE_DIR"] = "1"
     env["TMPDIR"] = str(tmpdir)
-    run_checked(
-        [str(venv_python), "-m", "pip", "install", "--require-hashes", "-r", str(tools_lockfile)],
-        env=env,
+    # The egress proxy intermittently times out on PyPI downloads
+    # (observed: five consecutive venv setups failed with ProxyError
+    # while the proxy was degraded, then recovered on its own). Retry
+    # the install a few times with backoff; a persistent failure is
+    # still Unevaluated (exit 2), never a pass.
+    last_detail = "unknown error"
+    for attempt in (1, 2, 3):
+        proc = run(
+            [
+                str(venv_python),
+                "-m",
+                "pip",
+                "install",
+                "--require-hashes",
+                "-r",
+                str(tools_lockfile),
+            ],
+            env=env,
+        )
+        if proc.returncode == 0:
+            return venv_python
+        tail = ((proc.stdout or "") + (proc.stderr or "")).strip().splitlines()
+        last_detail = tail[-1] if tail else f"pip exit {proc.returncode}"
+        if attempt < 3:
+            time.sleep(15 * attempt)
+    raise Unevaluated(
+        "pip install of the tools lockfile failed after 3 attempts: " f"{last_detail}"
     )
-    return venv_python
 
 
 def build_once(venv_python: Path, checkout: Path, out_dir: Path, tmpdir: Path) -> tuple[Path, Path]:
