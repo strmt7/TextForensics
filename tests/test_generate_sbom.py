@@ -493,10 +493,21 @@ def test_vendored_assets_included_when_file_present(tmp_path):
 def test_real_repo_generation(tmp_path):
     """Real-repo run; skips unless the full pinned install is present."""
     installed = sbom.live_distributions()
-    extras, pinned_names = sbom.parse_pinned_requirements(REPO_ROOT / "requirements-pinned.txt")
+    extras, _pinned_names = sbom.parse_pinned_requirements(REPO_ROOT / "requirements-pinned.txt")
     project = sbom.load_pyproject(REPO_ROOT / "pyproject.toml")
-    roots = sbom.root_requirement_names(project, extras, pinned_names)
-    missing = sorted(name for name in roots if name not in installed)
+    # Marker-aware roots (ENG-12): the pinned file now carries
+    # marker-gated transitives (backports.tarfile on Python < 3.12,
+    # colorama / pywin32 / pywin32-ctypes on Windows) that are NOT
+    # installed on this platform — the name-only root set would list
+    # them as missing and this test would skip everywhere instead of
+    # running. Only roots whose marker holds here must be installed.
+    requested, _excluded = sbom.root_requirements(
+        project,
+        extras,
+        sbom.pinned_requirements(REPO_ROOT / "requirements-pinned.txt"),
+        sbom.target_environment(),
+    )
+    missing = sorted(name for name in requested if name not in installed)
     if missing:
         pytest.skip(f"full requirements-pinned install not present; missing: {missing}")
     out = tmp_path / "sbom.cdx.json"
@@ -525,7 +536,10 @@ def test_real_repo_generation(tmp_path):
     # Vendored assets (ENG-15): the Chart.js bundle and the
     # @kurkle/color it bundles, with MIT licences, npm purls, and the
     # SHA-256 of the shipped file; the root component depends on them.
-    assert len(bom["components"]) == 122  # 120 locked packages + 2 vendored
+    # 122 = 120 locked packages installed on this platform + 2 vendored
+    # (127 locked total; 7 are marker-gated for other Pythons/platforms
+    # and excluded from this platform's closure).
+    assert len(bom["components"]) == 122
     vendored_file = REPO_ROOT / "src" / "textforensics" / "web_ui" / "static" / "chart.umd.min.js"
     vendored_sha = hashlib.sha256(vendored_file.read_bytes()).hexdigest()
     by_name = {c["name"]: c for c in bom["components"]}
