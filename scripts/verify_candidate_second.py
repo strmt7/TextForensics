@@ -1220,7 +1220,7 @@ def cmd_self_test(args: argparse.Namespace) -> int:
     case(
         "missing signature (wheel .sig deleted)",
         1,
-        "lacks detached signature",
+        "missing assets",
         verify_argv(case_dir, case_assets, case_dir / "candidate-manifest.json", ["--asset-only"]),
     )
 
