@@ -239,8 +239,7 @@ def derive_marker(envs: set[str], grid: list[tuple[str, dict]]) -> str | None:
         except Exception:  # noqa: BLE001 - an invalid candidate is skipped
             continue
     raise ValueError(
-        "no simple marker covers exactly the environments "
-        f"{sorted(envs)}; write the marker by hand"
+        f"no simple marker covers exactly the environments {sorted(envs)}; write the marker by hand"
     )
 
 
@@ -280,8 +279,7 @@ def select_version(
         candidates.append(version)
     if not candidates:
         raise ValueError(
-            f"no PyPI release of {name} satisfies {sorted(specifiers)} "
-            f"on Python {needed_pythons}"
+            f"no PyPI release of {name} satisfies {sorted(specifiers)} on Python {needed_pythons}"
         )
     return str(max(candidates))
 
@@ -341,7 +339,9 @@ def compute_closure(
                 try:
                     data = fetch(package, version)
                 except Exception as exc:  # noqa: BLE001 - recorded as missing data
-                    raise ValueError(f"cannot fetch metadata for {package}=={version}: {exc}") from exc
+                    raise ValueError(
+                        f"cannot fetch metadata for {package}=={version}: {exc}"
+                    ) from exc
                 for req_string in data["info"].get("requires_dist") or []:
                     try:
                         req = Requirement(req_string)
@@ -382,7 +382,9 @@ def compute_closure(
     return required, violations, missing
 
 
-def check_closure(pins: list[tuple[str, str, str | None]]) -> tuple[list[str], list[tuple[str, str, str, str, str]]]:
+def check_closure(
+    pins: list[tuple[str, str, str | None]],
+) -> tuple[list[str], list[tuple[str, str, str, str, str]]]:
     """Verify the closure; return (suggested pinned lines, violations).
 
     The suggested lines are the exact ``name==version; marker`` lines
@@ -461,7 +463,7 @@ def generate(output: Path) -> list[tuple[str, str, str | None]]:
     lines.append("# environment grid (Python 3.11-3.15 x Linux/Windows/macOS) before")
     lines.append("# emitting anything: a transitive dependency that is required only")
     lines.append("# under an environment marker (e.g. backports.tarfile on Python")
-    lines.append('# < 3.12, colorama on Windows) must be pinned here with its marker,')
+    lines.append("# < 3.12, colorama on Windows) must be pinned here with its marker,")
     lines.append("# or pip --require-hashes refuses it on that environment. See")
     lines.append("# scripts/generate_hashed_lock.py. Regenerate after any")
     lines.append("# requirements-pinned.txt change with the command above; use")

@@ -156,9 +156,7 @@ class TestClosureUnit:
         assert set(missing) == {"ddd"}
         version, _specs, envs = missing["ddd"]
         assert version == "1.0"
-        assert envs == {
-            f"py{py}-win32" for py in ("3.11", "3.12", "3.13", "3.14", "3.15")
-        }
+        assert envs == {f"py{py}-win32" for py in ("3.11", "3.12", "3.13", "3.14", "3.15")}
         assert gen.derive_marker(envs, gen.grid_environments()) == 'sys_platform == "win32"'
 
     def test_closure_complete_when_marker_gated_dep_is_pinned(self):
@@ -288,9 +286,7 @@ class TestGenerateFailsClosed:
 
         monkeypatch.setattr(gen, "pypi_json", failing_fetch)
         monkeypatch.setattr(gen, "PINNED_FILE", tmp_path / "requirements-pinned.txt")
-        (tmp_path / "requirements-pinned.txt").write_text(
-            "aaa==1.0\nbbb==2.0\n", encoding="utf-8"
-        )
+        (tmp_path / "requirements-pinned.txt").write_text("aaa==1.0\nbbb==2.0\n", encoding="utf-8")
         output = tmp_path / "requirements-hashed.txt"
         with pytest.raises(ValueError, match="bbb"):
             gen.generate(output)
@@ -356,8 +352,7 @@ class TestLockfilesAgree:
                 f"{name}: hashed pins {entry['version']} but pinned pins {pin['version']}"
             )
             assert entry["marker"] == pin["marker"], (
-                f"{name}: hashed marker {entry['marker']!r} but pinned "
-                f"marker {pin['marker']!r}"
+                f"{name}: hashed marker {entry['marker']!r} but pinned marker {pin['marker']!r}"
             )
             assert entry["hashes"], f"{name}=={pin['version']} has no --hash entries"
 
