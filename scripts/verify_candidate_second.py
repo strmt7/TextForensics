@@ -277,9 +277,7 @@ def fresh_venv(python: str, venv_dir: Path, tools_lockfile: Path, tmpdir: Path) 
         last_detail = tail[-1] if tail else f"pip exit {proc.returncode}"
         if attempt < 3:
             time.sleep(15 * attempt)
-    raise Unevaluated(
-        "pip install of the tools lockfile failed after 3 attempts: " f"{last_detail}"
-    )
+    raise Unevaluated(f"pip install of the tools lockfile failed after 3 attempts: {last_detail}")
 
 
 def build_once(venv_python: Path, checkout: Path, out_dir: Path, tmpdir: Path) -> tuple[Path, Path]:
@@ -923,10 +921,7 @@ def finish(checks, blockers, args, manifest, exit_code=None):
     failed = [c for c in checks if c["status"] == "fail"]
     incomplete = [c for c in checks if c["status"] in ("unavailable",)]
     if exit_code is None:
-        if failed or blockers:
-            exit_code = 1
-        else:
-            exit_code = 0
+        exit_code = 1 if failed or blockers else 0
     report = {
         "verifier": "verify_candidate_second.py (W10 second verifier)",
         "manifest_format": MANIFEST_FORMAT,
@@ -1000,7 +995,6 @@ def cmd_self_test(args: argparse.Namespace) -> int:
     repo = Path(args.repo) if args.repo else Path(__file__).resolve().parent.parent
     version = str(manifest["version"])
     sha = str(manifest["source_sha"])
-    tag = str(manifest["tag"])
     wheel = f"textforensics-{version}-py3-none-any.whl"
     sdist = f"textforensics-{version}.tar.gz"
     results: list[dict] = []
