@@ -34,7 +34,7 @@
 memory-profiler==0.61.0
 cyclonedx-bom==8.0.1
 myst-parser==5.2.0
-sphinx==8.2.3
+sphinx==9.0.4
 sphinx-rtd-theme==3.1.0
 build==1.6.1
 setuptools==84.2.1
